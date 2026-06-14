@@ -237,9 +237,23 @@ def main():
     ap.add_argument("--chunk-words", type=int, default=300)
     ap.add_argument("--max-seq", type=int, default=512)
     ap.add_argument("--batch", type=int, default=128)
+    ap.add_argument("--include", default="",
+                    help="comma-separated labels to keep (others dropped); tolerant match")
     args = ap.parse_args()
 
     X, labels, kinds = embed_all(args)
+
+    if args.include:
+        import re
+        norm = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())
+        keep = {norm(w) for w in args.include.split(",") if w.strip()}
+        mask = np.array([norm(l) in keep for l in labels])
+        missing = keep - {norm(l) for l in labels[mask]}
+        if missing:
+            print(f"[filter] WARNING: no match for {missing}", file=sys.stderr)
+        X, labels, kinds = X[mask], labels[mask], kinds[mask]
+        print(f"[filter] kept {int(mask.sum())} points: {list(labels)}", file=sys.stderr)
+
     build_html(X, labels, kinds, args.out)
 
 if __name__ == "__main__":

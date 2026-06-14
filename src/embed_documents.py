@@ -135,8 +135,11 @@ function updateSentence(){
   if(mode!=='analogy'){ sent.style.display='none'; return; }
   sent.style.display='block';
   var p1=sel.length>=1?LABELS[sel[0]]:null, p2=sel.length>=2?LABELS[sel[1]]:null,
-      p3=sel.length>=3?LABELS[sel[2]]:null, p4=(sel.length>=3&&window.__D!=null)?LABELS[window.__D]:null;
-  sent.innerHTML='As '+slot(p1,'POINT 1')+' is a '+slot(p2,'POINT 2')+' a '+slot(p3,'POINT 3')+' is '+slot(p4,'POINT 4')+'.';
+      p3=sel.length>=3?LABELS[sel[2]]:null, p4=null;
+  if(sel.length>=3){ var D=window.__D;
+    if(D==null){ var R=predict(sel[0],sel[1],sel[2]); if(R.length){ D=R[0][1]; window.__D=D; } }
+    if(D!=null) p4=LABELS[D]; }
+  sent.innerHTML='As '+slot(p1,'POINT 1')+' is '+slot(p2,'POINT 2')+' as a '+slot(p3,'POINT 3')+' is a '+slot(p4,'POINT 4')+'.';
 }
 
 var tp=document.createElement('div');

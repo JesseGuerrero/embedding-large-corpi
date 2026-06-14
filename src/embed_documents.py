@@ -259,7 +259,7 @@ def build_html(X, labels, kinds, out):
             text=labels[sel], textposition="top center",
             textfont=dict(size=11, color="#ddd"),
             customdata=[int(i) for i in sel],
-            hovertext=labels[sel], hoverinfo="text",
+            hoverinfo="none",   # hover-label rendering recurses on scatter3d; labels are already shown
         ))
     fig.update_layout(
         title="Corpus documents & concept words — shared embedding space "

@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
-"""One-point-per-document embedding + concept words, projected to 3D with PCA.
+"""One-point-per-document embedding + concept words, projected to 3D with PCA,
+rendered as an interactive Plotly graph with Distance and Analogy tools and
+per-point show/hide toggles (persisted to browser localStorage).
 
 Each .txt file -> chunked -> chunk embeddings mean-pooled -> one L2-normalized
 document vector (labeled by filename). Each concept phrase -> one vector. All
-vectors share the same Qwen3-Embedding space and are projected to 3D via PCA
-(appropriate for a small number of points).
+vectors share the same Qwen3-Embedding space, projected to 3D via PCA.
 
-Document vectors are cached per-file in an .npz (the slow part: a big corpus is
-tens of thousands of chunks). Concept words are cheap and always re-embedded, so
-adding/removing concept points is near-instant once the document cache exists.
-
-The interactive distance tool is injected separately by src/add_distance_tool.py
-so the visualization logic lives in one place.
+Document vectors are cached per-file in an .npz (the slow part). Concept words
+are cheap and always re-embedded, so adding/removing words is near-instant once
+the document cache exists.
 """
 import argparse, glob, json, os, sys, time
 import numpy as np
@@ -42,7 +40,6 @@ def embed_all(args):
         model = SentenceTransformer(args.model, trust_remote_code=True, device=dev, model_kwargs=mk)
         model.max_seq_length = args.max_seq
 
-    # documents (use cache where possible)
     for f, name in zip(files, names):
         if name in cache:
             print(f"[doc] {name}: cached", file=sys.stderr); continue
@@ -55,13 +52,11 @@ def embed_all(args):
         cache[name] = doc
         print(f"[doc] {name}: {len(chunks)} chunks -> 1 vector ({time.time()-t:.0f}s)", file=sys.stderr)
 
-    # persist the (possibly grown) document cache
     os.makedirs(os.path.dirname(args.cache), exist_ok=True)
     clabels = list(cache.keys())
     np.savez(args.cache, labels=np.array(clabels), vecs=np.vstack([cache[k] for k in clabels]))
     print(f"[cache] saved {len(clabels)} document vectors -> {args.cache}", file=sys.stderr)
 
-    # assemble: documents (file order) then concepts
     labels, kinds, vecs = [], [], []
     for name in names:
         labels.append(name); kinds.append("document"); vecs.append(cache[name])
@@ -73,26 +68,41 @@ def embed_all(args):
 
     return np.vstack(vecs).astype(np.float32), np.array(labels), np.array(kinds)
 
-# Injected after the figure renders. {plot_id} is substituted by Plotly; the
-# __DATA__ placeholders are substituted in build_html. Provides two tools:
-#   Distance  -> click two points: line + full-dim cosine distance label
-#   Analogy   -> click A, B, C: finds D completing A:B :: C:D (full-dim vectors)
-# Uses ONE-TIME addTraces + restyle only (never add/remove per click), which is
-# what keeps a WebGL scatter3d from entering a re-render loop.
+# Injected after the figure renders. {plot_id} -> Plotly; __DATA__ -> build_html.
+# Tools: Distance (two points -> cosine distance) and Analogy (A,B,C -> D).
+# Per-point show/hide toggles persist to localStorage. Clicks map to the global
+# index via each point's customdata, so filtering never breaks the tools.
+# Only one-time addTraces + restyle is used (no per-click trace add/remove).
 TOOL_JS = r"""
 var gd = document.getElementById('{plot_id}');
-var LABELS=__LABELS__, KINDS=__KINDS__, COORDS=__COORDS__, VECS=__VECS__, T2G=__T2G__;
+var LABELS=__LABELS__, KINDS=__KINDS__, COORDS=__COORDS__, VECS=__VECS__;
 var base = gd.data.length, IDX={}, busy=false, mode='distance', sel=[];
+
+var STORE='emb_excluded_v1', excluded={};
+try{ var raw=localStorage.getItem(STORE); if(raw) JSON.parse(raw).forEach(function(l){excluded[l]=1;}); }catch(e){}
+function saveVis(){ try{ localStorage.setItem(STORE, JSON.stringify(Object.keys(excluded))); }catch(e){} }
+function isVis(i){ return !excluded[LABELS[i]]; }
 
 var zmin=Infinity, zmax=-Infinity;
 for(var i=0;i<COORDS.length;i++){ var z=COORDS[i][2]; if(z<zmin)zmin=z; if(z>zmax)zmax=z; }
 var zoff=(isFinite(zmin)&&isFinite(zmax))?(zmax-zmin)*0.05:0.1;
 
 function dot(a,b){ var s=0; for(var i=0;i<a.length;i++) s+=a[i]*b[i]; return s; }
-function cos(i,j){ return dot(VECS[i],VECS[j]); }            // vectors are L2-normalized
+function cos(i,j){ return dot(VECS[i],VECS[j]); }
 function addv(a,b){ var r=new Array(a.length); for(var i=0;i<a.length;i++) r[i]=a[i]+b[i]; return r; }
 function subv(a,b){ var r=new Array(a.length); for(var i=0;i<a.length;i++) r[i]=a[i]-b[i]; return r; }
 function normv(a){ var n=Math.sqrt(dot(a,a))||1, r=new Array(a.length); for(var i=0;i<a.length;i++) r[i]=a[i]/n; return r; }
+function kindIdx(k){ var a=[]; for(var i=0;i<LABELS.length;i++) if(KINDS[i]===k) a.push(i); return a; }
+var DOCS=kindIdx('document'), CONS=kindIdx('concept');
+
+function redraw(){
+  function pack(idxs){ var x=[],y=[],z=[],t=[],cd=[];
+    for(var k=0;k<idxs.length;k++){ var i=idxs[k]; if(!isVis(i))continue;
+      x.push(COORDS[i][0]); y.push(COORDS[i][1]); z.push(COORDS[i][2]); t.push(LABELS[i]); cd.push(i); }
+    return [x,y,z,t,cd]; }
+  var d=pack(DOCS), c=pack(CONS);
+  Plotly.restyle(gd,{x:[d[0],c[0]],y:[d[1],c[1]],z:[d[2],c[2]],text:[d[3],c[3]],customdata:[d[4],c[4]]},[0,1]);
+}
 
 Plotly.addTraces(gd, [
   {name:'distline', type:'scatter3d', mode:'lines', x:[],y:[],z:[], line:{color:'#FFD700',width:5}, hoverinfo:'skip', showlegend:false},
@@ -100,21 +110,47 @@ Plotly.addTraces(gd, [
   {name:'A→B', type:'scatter3d', mode:'lines', x:[],y:[],z:[], line:{color:'#2ee6a6',width:7}, hoverinfo:'skip', showlegend:false},
   {name:'C→D', type:'scatter3d', mode:'lines', x:[],y:[],z:[], line:{color:'#ff8c42',width:7}, hoverinfo:'skip', showlegend:false},
   {name:'sel', type:'scatter3d', mode:'markers', x:[],y:[],z:[], marker:{size:16,color:'rgba(255,255,255,0.45)'}, hoverinfo:'skip', showlegend:false}
-]).then(function(){ var n=gd.data.length; IDX.sel=n-1; IDX.cd=n-2; IDX.ab=n-3; IDX.dlabel=n-4; IDX.dline=n-5; render(); });
+]).then(function(){ var n=gd.data.length; IDX.sel=n-1; IDX.cd=n-2; IDX.ab=n-3; IDX.dlabel=n-4; IDX.dline=n-5; redraw(); render(); });
+
+// ---- panels ----
+function mkbtn(t){ var b=document.createElement('button'); b.textContent=t;
+  b.style.cssText='margin-right:6px;padding:4px 11px;border-radius:6px;border:1px solid #666;background:#2a2a36;color:#eee;cursor:pointer;font:12px system-ui'; return b; }
 
 var panel=document.createElement('div');
 panel.style.cssText='position:fixed;top:12px;left:12px;z-index:1000;background:rgba(20,20,28,.93);color:#eee;'
-  +'font:13px/1.5 system-ui,sans-serif;padding:12px 14px;border:1px solid #444;border-radius:8px;max-width:350px;'
-  +'box-shadow:0 2px 12px rgba(0,0,0,.55)';
+  +'font:13px/1.5 system-ui,sans-serif;padding:12px 14px;border:1px solid #444;border-radius:8px;max-width:350px;box-shadow:0 2px 12px rgba(0,0,0,.55)';
 document.body.appendChild(panel);
-function mkbtn(t){ var b=document.createElement('button'); b.textContent=t;
-  b.style.cssText='margin-right:6px;padding:4px 11px;border-radius:6px;border:1px solid #666;background:#2a2a36;color:#eee;cursor:pointer;font:12px system-ui'; return b; }
 var bD=mkbtn('Distance'), bA=mkbtn('Analogy'), bar=document.createElement('div');
 bar.style.marginBottom='8px'; bar.appendChild(bD); bar.appendChild(bA); panel.appendChild(bar);
 var info=document.createElement('div'); panel.appendChild(info);
 bD.onclick=function(){ setMode('distance'); }; bA.onclick=function(){ setMode('analogy'); };
-function setMode(m){ mode=m; sel=[]; clearAll(); bD.style.background=m=='distance'?'#4356c0':'#2a2a36';
-  bA.style.background=m=='analogy'?'#4356c0':'#2a2a36'; render(); }
+
+var tp=document.createElement('div');
+tp.style.cssText='position:fixed;top:12px;right:12px;z-index:1000;background:rgba(20,20,28,.93);color:#eee;'
+  +'font:12px/1.45 system-ui,sans-serif;padding:10px 12px;border:1px solid #444;border-radius:8px;'
+  +'max-height:86vh;overflow:auto;min-width:210px;box-shadow:0 2px 12px rgba(0,0,0,.55)';
+document.body.appendChild(tp);
+var th=document.createElement('div'); th.innerHTML='<b>Show / hide points</b>'; th.style.marginBottom='6px'; tp.appendChild(th);
+var ctl=document.createElement('div'); ctl.style.marginBottom='4px';
+var bAll=mkbtn('All'), bNone=mkbtn('None'); ctl.appendChild(bAll); ctl.appendChild(bNone); tp.appendChild(ctl);
+bAll.onclick=function(){ excluded={}; afterToggle(); };
+bNone.onclick=function(){ excluded={}; for(var i=0;i<LABELS.length;i++) excluded[LABELS[i]]=1; afterToggle(); };
+function addGroup(title, idxs){
+  var h=document.createElement('div'); h.textContent=title; h.style.cssText='margin:7px 0 2px;color:#9bd;font-weight:bold'; tp.appendChild(h);
+  idxs.forEach(function(i){
+    var row=document.createElement('label'); row.style.cssText='display:block;cursor:pointer;white-space:nowrap';
+    var cb=document.createElement('input'); cb.type='checkbox'; cb.checked=isVis(i); cb.style.marginRight='6px'; cb.setAttribute('data-i', i);
+    cb.onchange=function(){ if(cb.checked) delete excluded[LABELS[i]]; else excluded[LABELS[i]]=1; afterToggle(); };
+    row.appendChild(cb); row.appendChild(document.createTextNode(LABELS[i])); tp.appendChild(row);
+  });
+}
+addGroup('Documents', DOCS); addGroup('Concepts', CONS);
+function syncChecks(){ var cbs=tp.querySelectorAll('input[type=checkbox]');
+  for(var k=0;k<cbs.length;k++){ var i=+cbs[k].getAttribute('data-i'); cbs[k].checked=isVis(i); } }
+function afterToggle(){ saveVis(); sel=[]; window.__D=null; syncChecks(); clearAll(); redraw(); render(); }
+
+function setMode(m){ mode=m; sel=[]; window.__D=null; clearAll();
+  bD.style.background=m=='distance'?'#4356c0':'#2a2a36'; bA.style.background=m=='analogy'?'#4356c0':'#2a2a36'; render(); }
 
 function coordsOf(arr){ var x=[],y=[],z=[]; for(var i=0;i<arr.length;i++){ x.push(COORDS[arr[i]][0]); y.push(COORDS[arr[i]][1]); z.push(COORDS[arr[i]][2]); } return [x,y,z]; }
 function clearAll(){ if(IDX.sel===undefined||busy) return; busy=true;
@@ -123,24 +159,25 @@ function clearAll(){ if(IDX.sel===undefined||busy) return; busy=true;
 
 function predict(A,B,C){
   var t=normv(addv(VECS[C],subv(VECS[B],VECS[A]))), ex={}; ex[A]=ex[B]=ex[C]=1;
-  var r=[]; for(var i=0;i<VECS.length;i++){ if(ex[i])continue; r.push([dot(t,VECS[i]),i]); }
+  var r=[]; for(var i=0;i<VECS.length;i++){ if(ex[i]||!isVis(i))continue; r.push([dot(t,VECS[i]),i]); }
   r.sort(function(a,b){return b[0]-a[0];}); return r;
 }
 
 function drawDistance(){
   if(IDX.sel===undefined||busy) return; busy=true;
-  var hc=coordsOf(sel), lx=[],ly=[],lz=[],tx=[],tz_=[],ty=[],tt=[];
+  var hc=coordsOf(sel), lx=[],ly=[],lz=[],tx=[],ty=[],tz=[],tt=[];
   if(sel.length===2){ var a=sel[0],b=sel[1],ca=COORDS[a],cb=COORDS[b];
     lx=[ca[0],cb[0]]; ly=[ca[1],cb[1]]; lz=[ca[2],cb[2]];
-    var cd=(1-cos(a,b)).toFixed(3); tx=[(ca[0]+cb[0])/2]; ty=[(ca[1]+cb[1])/2]; tz_=[(ca[2]+cb[2])/2+zoff]; tt=[cd]; }
-  Plotly.restyle(gd,{x:[lx,tx,hc[0]],y:[ly,ty,hc[1]],z:[lz,tz_,hc[2]],text:[[],tt,[]]},
+    tx=[(ca[0]+cb[0])/2]; ty=[(ca[1]+cb[1])/2]; tz=[(ca[2]+cb[2])/2+zoff]; tt=[(1-cos(a,b)).toFixed(3)]; }
+  Plotly.restyle(gd,{x:[lx,tx,hc[0]],y:[ly,ty,hc[1]],z:[lz,tz,hc[2]],text:[[],tt,[]]},
     [IDX.dline,IDX.dlabel,IDX.sel]).then(function(){busy=false;});
 }
 function drawAnalogy(){
   if(IDX.sel===undefined||busy) return; busy=true;
   var abx=[],aby=[],abz=[],cdx=[],cdy=[],cdz=[],hi=sel.slice();
   if(sel.length>=2){ var A=sel[0],B=sel[1]; abx=[COORDS[A][0],COORDS[B][0]]; aby=[COORDS[A][1],COORDS[B][1]]; abz=[COORDS[A][2],COORDS[B][2]]; }
-  if(sel.length===3){ var C=sel[2], D=window.__D; if(D!=null){ cdx=[COORDS[C][0],COORDS[D][0]]; cdy=[COORDS[C][1],COORDS[D][1]]; cdz=[COORDS[C][2],COORDS[D][2]]; hi=[sel[0],sel[1],sel[2],D]; } }
+  if(sel.length===3 && window.__D!=null){ var C=sel[2], D=window.__D;
+    cdx=[COORDS[C][0],COORDS[D][0]]; cdy=[COORDS[C][1],COORDS[D][1]]; cdz=[COORDS[C][2],COORDS[D][2]]; hi=[sel[0],sel[1],sel[2],D]; }
   var hc=coordsOf(hi);
   Plotly.restyle(gd,{x:[abx,cdx,hc[0]],y:[aby,cdy,hc[1]],z:[abz,cdz,hc[2]]},[IDX.ab,IDX.cd,IDX.sel]).then(function(){busy=false;});
 }
@@ -159,7 +196,9 @@ function render(){
     if(sel.length===0) info.innerHTML='<b>Analogy</b> &nbsp;<span style="color:#2ee6a6">A→B</span> : <span style="color:#ff8c42">C→D</span><br>Click <b>A</b>, then <b>B</b> (defines the relation), then <b>C</b>.';
     else if(sel.length===1) info.innerHTML='<b>Analogy</b><br>A: <b>'+LABELS[sel[0]]+'</b><br>Click <b>B</b> (e.g. A=king → B=queen).';
     else if(sel.length===2) info.innerHTML='<b>Analogy</b><br><span style="color:#2ee6a6">'+LABELS[sel[0]]+' → '+LABELS[sel[1]]+'</span><br>Now click <b>C</b> to find its match.';
-    else{ var R=predict(sel[0],sel[1],sel[2]); window.__D=R[0][1];
+    else{ var R=predict(sel[0],sel[1],sel[2]);
+      if(!R.length){ window.__D=null; info.innerHTML='<b>Analogy</b><br>No other visible points to match against.'; return; }
+      window.__D=R[0][1];
       var top=R.slice(0,3).map(function(p){return LABELS[p[1]]+' ('+p[0].toFixed(3)+')';}).join(', ');
       info.innerHTML='<b>Analogy</b><br><span style="color:#2ee6a6">'+LABELS[sel[0]]+' : '+LABELS[sel[1]]+'</span> :: '
         +'<span style="color:#ff8c42">'+LABELS[sel[2]]+' : <b>'+LABELS[R[0][1]]+'</b></span> ('+R[0][0].toFixed(3)+')'
@@ -169,13 +208,14 @@ function render(){
 }
 
 gd.on('plotly_click', function(e){
-  var p=e.points[0]; if(p.curveNumber>=base) return;        // ignore tool traces
-  var g=T2G[p.curveNumber][p.pointNumber];
+  var p=e.points[0]; if(p.curveNumber>=base) return;       // ignore tool traces
+  var g=p.customdata; if(g==null) return;
   var cap = mode==='distance'?2:3;
   if(sel.length>=cap){ sel=[]; window.__D=null; clearAll(); }
   if(sel.indexOf(g)===-1) sel.push(g);
   render();
-  if(mode==='distance') drawDistance(); else drawAnalogy();
+  if(mode==='distance') drawDistance();
+  else { if(sel.length===3) render(); drawAnalogy(); }   // ensure __D set before drawing
 });
 setMode('distance');
 """
@@ -188,11 +228,9 @@ def build_html(X, labels, kinds, out):
     Y = PCA(n_components=3, random_state=42).fit_transform(X)
 
     fig = go.Figure()
-    t2g = []
     for kind, color, size, sym in [("document", "#4C78A8", 7, "circle"),
                                    ("concept", "#E45756", 6, "diamond")]:
         sel = np.where(kinds == kind)[0]
-        t2g.append([int(i) for i in sel])
         fig.add_trace(go.Scatter3d(
             x=Y[sel, 0], y=Y[sel, 1], z=Y[sel, 2],
             mode="markers+text", name=kind,
@@ -200,6 +238,7 @@ def build_html(X, labels, kinds, out):
                         line=dict(width=0.5, color="#222")),
             text=labels[sel], textposition="top center",
             textfont=dict(size=11, color="#ddd"),
+            customdata=[int(i) for i in sel],
             hovertext=labels[sel], hoverinfo="text",
         ))
     fig.update_layout(
@@ -214,8 +253,7 @@ def build_html(X, labels, kinds, out):
           .replace("__LABELS__", json.dumps(list(map(str, labels))))
           .replace("__KINDS__", json.dumps(list(map(str, kinds))))
           .replace("__COORDS__", json.dumps([[round(float(v), 5) for v in row] for row in Y]))
-          .replace("__VECS__", json.dumps([[round(float(v), 5) for v in row] for row in X]))
-          .replace("__T2G__", json.dumps(t2g)))
+          .replace("__VECS__", json.dumps([[round(float(v), 5) for v in row] for row in X])))
 
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.write_html(out, include_plotlyjs="cdn", full_html=True,
@@ -248,9 +286,6 @@ def main():
         norm = lambda s: re.sub(r"[^a-z0-9]", "", s.lower())
         keep = {norm(w) for w in args.include.split(",") if w.strip()}
         mask = np.array([norm(l) in keep for l in labels])
-        missing = keep - {norm(l) for l in labels[mask]}
-        if missing:
-            print(f"[filter] WARNING: no match for {missing}", file=sys.stderr)
         X, labels, kinds = X[mask], labels[mask], kinds[mask]
         print(f"[filter] kept {int(mask.sum())} points: {list(labels)}", file=sys.stderr)
 

@@ -73,6 +73,113 @@ def embed_all(args):
 
     return np.vstack(vecs).astype(np.float32), np.array(labels), np.array(kinds)
 
+# Injected after the figure renders. {plot_id} is substituted by Plotly; the
+# __DATA__ placeholders are substituted in build_html. Provides two tools:
+#   Distance  -> click two points: line + full-dim cosine distance label
+#   Analogy   -> click A, B, C: finds D completing A:B :: C:D (full-dim vectors)
+# Uses ONE-TIME addTraces + restyle only (never add/remove per click), which is
+# what keeps a WebGL scatter3d from entering a re-render loop.
+TOOL_JS = r"""
+var gd = document.getElementById('{plot_id}');
+var LABELS=__LABELS__, KINDS=__KINDS__, COORDS=__COORDS__, VECS=__VECS__, T2G=__T2G__;
+var base = gd.data.length, IDX={}, busy=false, mode='distance', sel=[];
+
+var zmin=Infinity, zmax=-Infinity;
+for(var i=0;i<COORDS.length;i++){ var z=COORDS[i][2]; if(z<zmin)zmin=z; if(z>zmax)zmax=z; }
+var zoff=(isFinite(zmin)&&isFinite(zmax))?(zmax-zmin)*0.05:0.1;
+
+function dot(a,b){ var s=0; for(var i=0;i<a.length;i++) s+=a[i]*b[i]; return s; }
+function cos(i,j){ return dot(VECS[i],VECS[j]); }            // vectors are L2-normalized
+function addv(a,b){ var r=new Array(a.length); for(var i=0;i<a.length;i++) r[i]=a[i]+b[i]; return r; }
+function subv(a,b){ var r=new Array(a.length); for(var i=0;i<a.length;i++) r[i]=a[i]-b[i]; return r; }
+function normv(a){ var n=Math.sqrt(dot(a,a))||1, r=new Array(a.length); for(var i=0;i<a.length;i++) r[i]=a[i]/n; return r; }
+
+Plotly.addTraces(gd, [
+  {name:'distline', type:'scatter3d', mode:'lines', x:[],y:[],z:[], line:{color:'#FFD700',width:5}, hoverinfo:'skip', showlegend:false},
+  {name:'distlabel', type:'scatter3d', mode:'text', x:[],y:[],z:[], text:[], textposition:'top center', textfont:{color:'#FFD700',size:36}, hoverinfo:'skip', showlegend:false},
+  {name:'A→B', type:'scatter3d', mode:'lines', x:[],y:[],z:[], line:{color:'#2ee6a6',width:7}, hoverinfo:'skip', showlegend:false},
+  {name:'C→D', type:'scatter3d', mode:'lines', x:[],y:[],z:[], line:{color:'#ff8c42',width:7}, hoverinfo:'skip', showlegend:false},
+  {name:'sel', type:'scatter3d', mode:'markers', x:[],y:[],z:[], marker:{size:16,color:'rgba(255,255,255,0.45)'}, hoverinfo:'skip', showlegend:false}
+]).then(function(){ var n=gd.data.length; IDX.sel=n-1; IDX.cd=n-2; IDX.ab=n-3; IDX.dlabel=n-4; IDX.dline=n-5; render(); });
+
+var panel=document.createElement('div');
+panel.style.cssText='position:fixed;top:12px;left:12px;z-index:1000;background:rgba(20,20,28,.93);color:#eee;'
+  +'font:13px/1.5 system-ui,sans-serif;padding:12px 14px;border:1px solid #444;border-radius:8px;max-width:350px;'
+  +'box-shadow:0 2px 12px rgba(0,0,0,.55)';
+document.body.appendChild(panel);
+function mkbtn(t){ var b=document.createElement('button'); b.textContent=t;
+  b.style.cssText='margin-right:6px;padding:4px 11px;border-radius:6px;border:1px solid #666;background:#2a2a36;color:#eee;cursor:pointer;font:12px system-ui'; return b; }
+var bD=mkbtn('Distance'), bA=mkbtn('Analogy'), bar=document.createElement('div');
+bar.style.marginBottom='8px'; bar.appendChild(bD); bar.appendChild(bA); panel.appendChild(bar);
+var info=document.createElement('div'); panel.appendChild(info);
+bD.onclick=function(){ setMode('distance'); }; bA.onclick=function(){ setMode('analogy'); };
+function setMode(m){ mode=m; sel=[]; clearAll(); bD.style.background=m=='distance'?'#4356c0':'#2a2a36';
+  bA.style.background=m=='analogy'?'#4356c0':'#2a2a36'; render(); }
+
+function coordsOf(arr){ var x=[],y=[],z=[]; for(var i=0;i<arr.length;i++){ x.push(COORDS[arr[i]][0]); y.push(COORDS[arr[i]][1]); z.push(COORDS[arr[i]][2]); } return [x,y,z]; }
+function clearAll(){ if(IDX.sel===undefined||busy) return; busy=true;
+  Plotly.restyle(gd,{x:[[],[],[],[],[]],y:[[],[],[],[],[]],z:[[],[],[],[],[]],text:[[],[],[],[],[]]},
+    [IDX.dline,IDX.dlabel,IDX.ab,IDX.cd,IDX.sel]).then(function(){busy=false;}); }
+
+function predict(A,B,C){
+  var t=normv(addv(VECS[C],subv(VECS[B],VECS[A]))), ex={}; ex[A]=ex[B]=ex[C]=1;
+  var r=[]; for(var i=0;i<VECS.length;i++){ if(ex[i])continue; r.push([dot(t,VECS[i]),i]); }
+  r.sort(function(a,b){return b[0]-a[0];}); return r;
+}
+
+function drawDistance(){
+  if(IDX.sel===undefined||busy) return; busy=true;
+  var hc=coordsOf(sel), lx=[],ly=[],lz=[],tx=[],tz_=[],ty=[],tt=[];
+  if(sel.length===2){ var a=sel[0],b=sel[1],ca=COORDS[a],cb=COORDS[b];
+    lx=[ca[0],cb[0]]; ly=[ca[1],cb[1]]; lz=[ca[2],cb[2]];
+    var cd=(1-cos(a,b)).toFixed(3); tx=[(ca[0]+cb[0])/2]; ty=[(ca[1]+cb[1])/2]; tz_=[(ca[2]+cb[2])/2+zoff]; tt=[cd]; }
+  Plotly.restyle(gd,{x:[lx,tx,hc[0]],y:[ly,ty,hc[1]],z:[lz,tz_,hc[2]],text:[[],tt,[]]},
+    [IDX.dline,IDX.dlabel,IDX.sel]).then(function(){busy=false;});
+}
+function drawAnalogy(){
+  if(IDX.sel===undefined||busy) return; busy=true;
+  var abx=[],aby=[],abz=[],cdx=[],cdy=[],cdz=[],hi=sel.slice();
+  if(sel.length>=2){ var A=sel[0],B=sel[1]; abx=[COORDS[A][0],COORDS[B][0]]; aby=[COORDS[A][1],COORDS[B][1]]; abz=[COORDS[A][2],COORDS[B][2]]; }
+  if(sel.length===3){ var C=sel[2], D=window.__D; if(D!=null){ cdx=[COORDS[C][0],COORDS[D][0]]; cdy=[COORDS[C][1],COORDS[D][1]]; cdz=[COORDS[C][2],COORDS[D][2]]; hi=[sel[0],sel[1],sel[2],D]; } }
+  var hc=coordsOf(hi);
+  Plotly.restyle(gd,{x:[abx,cdx,hc[0]],y:[aby,cdy,hc[1]],z:[abz,cdz,hc[2]]},[IDX.ab,IDX.cd,IDX.sel]).then(function(){busy=false;});
+}
+
+function render(){
+  if(mode==='distance'){
+    if(sel.length===0) info.innerHTML='<b>Distance</b><br>Click any two points to measure them.';
+    else if(sel.length===1) info.innerHTML='<b>Distance</b><br>A: <b>'+LABELS[sel[0]]+'</b><br>Click a second point…';
+    else{ var a=sel[0],b=sel[1],cs=cos(a,b),dx=COORDS[a][0]-COORDS[b][0],dy=COORDS[a][1]-COORDS[b][1],dz=COORDS[a][2]-COORDS[b][2];
+      info.innerHTML='<b>Distance</b><br>A: <b>'+LABELS[a]+'</b><br>B: <b>'+LABELS[b]+'</b><hr style="border-color:#444">'
+        +'Cosine distance (1−cos, full 2560-D): <b style="color:#FFD700">'+(1-cs).toFixed(3)+'</b><br>'
+        +'Cosine similarity: <b>'+cs.toFixed(3)+'</b> &nbsp; Angle: <b>'+(Math.acos(Math.max(-1,Math.min(1,cs)))*180/Math.PI).toFixed(1)+'°</b><br>'
+        +'<span style="color:#888">3-D plot distance: '+Math.sqrt(dx*dx+dy*dy+dz*dz).toFixed(3)+'</span>'
+        +'<br><span style="color:#888;font-size:11px">Click a third point to reset.</span>'; }
+  } else {
+    if(sel.length===0) info.innerHTML='<b>Analogy</b> &nbsp;<span style="color:#2ee6a6">A→B</span> : <span style="color:#ff8c42">C→D</span><br>Click <b>A</b>, then <b>B</b> (defines the relation), then <b>C</b>.';
+    else if(sel.length===1) info.innerHTML='<b>Analogy</b><br>A: <b>'+LABELS[sel[0]]+'</b><br>Click <b>B</b> (e.g. A=king → B=queen).';
+    else if(sel.length===2) info.innerHTML='<b>Analogy</b><br><span style="color:#2ee6a6">'+LABELS[sel[0]]+' → '+LABELS[sel[1]]+'</span><br>Now click <b>C</b> to find its match.';
+    else{ var R=predict(sel[0],sel[1],sel[2]); window.__D=R[0][1];
+      var top=R.slice(0,3).map(function(p){return LABELS[p[1]]+' ('+p[0].toFixed(3)+')';}).join(', ');
+      info.innerHTML='<b>Analogy</b><br><span style="color:#2ee6a6">'+LABELS[sel[0]]+' : '+LABELS[sel[1]]+'</span> :: '
+        +'<span style="color:#ff8c42">'+LABELS[sel[2]]+' : <b>'+LABELS[R[0][1]]+'</b></span> ('+R[0][0].toFixed(3)+')'
+        +'<hr style="border-color:#444"><span style="color:#888;font-size:12px">best matches: '+top+'</span>'
+        +'<br><span style="color:#888;font-size:11px">Click a fourth point to reset.</span>'; }
+  }
+}
+
+gd.on('plotly_click', function(e){
+  var p=e.points[0]; if(p.curveNumber>=base) return;        // ignore tool traces
+  var g=T2G[p.curveNumber][p.pointNumber];
+  var cap = mode==='distance'?2:3;
+  if(sel.length>=cap){ sel=[]; window.__D=null; clearAll(); }
+  if(sel.indexOf(g)===-1) sel.push(g);
+  render();
+  if(mode==='distance') drawDistance(); else drawAnalogy();
+});
+setMode('distance');
+"""
+
 def build_html(X, labels, kinds, out):
     from sklearn.decomposition import PCA
     import plotly.graph_objects as go
@@ -81,9 +188,11 @@ def build_html(X, labels, kinds, out):
     Y = PCA(n_components=3, random_state=42).fit_transform(X)
 
     fig = go.Figure()
+    t2g = []
     for kind, color, size, sym in [("document", "#4C78A8", 7, "circle"),
                                    ("concept", "#E45756", 6, "diamond")]:
         sel = np.where(kinds == kind)[0]
+        t2g.append([int(i) for i in sel])
         fig.add_trace(go.Scatter3d(
             x=Y[sel, 0], y=Y[sel, 1], z=Y[sel, 2],
             mode="markers+text", name=kind,
@@ -95,14 +204,22 @@ def build_html(X, labels, kinds, out):
         ))
     fig.update_layout(
         title="Corpus documents & concept words — shared embedding space "
-              "(Qwen3-Embedding-4B, PCA→3D) · click two points for distance",
+              "(Qwen3-Embedding-4B, PCA→3D) · Distance & Analogy tools",
         template="plotly_dark",
         scene=dict(xaxis_title="PC-1", yaxis_title="PC-2", zaxis_title="PC-3"),
         legend=dict(itemsizing="constant"), margin=dict(l=0, r=0, t=40, b=0),
     )
 
+    js = (TOOL_JS
+          .replace("__LABELS__", json.dumps(list(map(str, labels))))
+          .replace("__KINDS__", json.dumps(list(map(str, kinds))))
+          .replace("__COORDS__", json.dumps([[round(float(v), 5) for v in row] for row in Y]))
+          .replace("__VECS__", json.dumps([[round(float(v), 5) for v in row] for row in X]))
+          .replace("__T2G__", json.dumps(t2g)))
+
     os.makedirs(os.path.dirname(out), exist_ok=True)
-    fig.write_html(out, include_plotlyjs="cdn", full_html=True, config={"responsive": True})
+    fig.write_html(out, include_plotlyjs="cdn", full_html=True,
+                   config={"responsive": True}, post_script=js)
     open(os.path.join(os.path.dirname(out), ".nojekyll"), "w").close()
 
     docs_i = np.where(kinds == "document")[0]; con_i = np.where(kinds == "concept")[0]

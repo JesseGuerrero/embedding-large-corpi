@@ -1,0 +1,10 @@
+# Source texts and large build artifacts are NOT committed (too big for git).
+corpora/
+data/embeddings/
+data/chunks/
+*.npy
+__pycache__/
+*.pyc
+
+# The published visualization in docs/ IS committed.
+!docs/

@@ -1,0 +1,11 @@
+# Embedding (GPU host)
+sentence-transformers>=5.0
+torch
+transformers
+einops            # required by gte-large-en-v1.5 custom code
+
+# Reduction + visualization
+numpy
+scikit-learn
+umap-learn
+plotly

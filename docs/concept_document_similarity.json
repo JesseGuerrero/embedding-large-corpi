@@ -1,72 +1,102 @@
 {
   "Jesus Christ": {
-    "apocrypha": 0.5378,
-    "baptismal-tradition": 0.4572,
+    "apocrypha": 0.5376,
+    "baptismal-tradition": 0.4565,
     "kjv-bible-66-books": 0.5735,
     "kjv-bible-with-apocrypha-80-books": 0.5706,
-    "new-testament": 0.6451,
-    "old-testament": 0.5319,
-    "philip-schaff": 0.5939,
-    "vatican-ii-peter-heers": 0.4431
+    "new-testament": 0.6448,
+    "old-testament": 0.532,
+    "philip-schaff": 0.5933,
+    "vatican-ii-peter-heers": 0.4424
   },
   "Protestant": {
-    "apocrypha": 0.4109,
-    "baptismal-tradition": 0.5002,
-    "kjv-bible-66-books": 0.4475,
-    "kjv-bible-with-apocrypha-80-books": 0.4439,
-    "new-testament": 0.5174,
-    "old-testament": 0.4107,
-    "philip-schaff": 0.4808,
-    "vatican-ii-peter-heers": 0.5001
+    "apocrypha": 0.4097,
+    "baptismal-tradition": 0.4998,
+    "kjv-bible-66-books": 0.4461,
+    "kjv-bible-with-apocrypha-80-books": 0.4425,
+    "new-testament": 0.5165,
+    "old-testament": 0.4092,
+    "philip-schaff": 0.4799,
+    "vatican-ii-peter-heers": 0.4996
   },
   "Non-denominational": {
-    "apocrypha": 0.4024,
-    "baptismal-tradition": 0.4483,
-    "kjv-bible-66-books": 0.4336,
-    "kjv-bible-with-apocrypha-80-books": 0.4308,
-    "new-testament": 0.4696,
-    "old-testament": 0.4079,
-    "philip-schaff": 0.4482,
-    "vatican-ii-peter-heers": 0.4633
+    "apocrypha": 0.4041,
+    "baptismal-tradition": 0.4488,
+    "kjv-bible-66-books": 0.4353,
+    "kjv-bible-with-apocrypha-80-books": 0.4325,
+    "new-testament": 0.471,
+    "old-testament": 0.4096,
+    "philip-schaff": 0.4496,
+    "vatican-ii-peter-heers": 0.4632
   },
   "Christianity": {
-    "apocrypha": 0.4231,
-    "baptismal-tradition": 0.4959,
-    "kjv-bible-66-books": 0.4575,
-    "kjv-bible-with-apocrypha-80-books": 0.4546,
-    "new-testament": 0.5432,
-    "old-testament": 0.4157,
+    "apocrypha": 0.4235,
+    "baptismal-tradition": 0.4957,
+    "kjv-bible-66-books": 0.4579,
+    "kjv-bible-with-apocrypha-80-books": 0.455,
+    "new-testament": 0.5433,
+    "old-testament": 0.4161,
     "philip-schaff": 0.5051,
-    "vatican-ii-peter-heers": 0.5093
+    "vatican-ii-peter-heers": 0.5094
   },
   "Eastern Orthodox": {
-    "apocrypha": 0.4499,
-    "baptismal-tradition": 0.614,
-    "kjv-bible-66-books": 0.4569,
-    "kjv-bible-with-apocrypha-80-books": 0.458,
-    "new-testament": 0.5107,
-    "old-testament": 0.4248,
+    "apocrypha": 0.4504,
+    "baptismal-tradition": 0.6134,
+    "kjv-bible-66-books": 0.4576,
+    "kjv-bible-with-apocrypha-80-books": 0.4586,
+    "new-testament": 0.511,
+    "old-testament": 0.4256,
     "philip-schaff": 0.5166,
-    "vatican-ii-peter-heers": 0.5807
+    "vatican-ii-peter-heers": 0.5801
   },
   "Roman Catholic": {
-    "apocrypha": 0.3953,
-    "baptismal-tradition": 0.5424,
-    "kjv-bible-66-books": 0.4116,
-    "kjv-bible-with-apocrypha-80-books": 0.4111,
-    "new-testament": 0.4753,
-    "old-testament": 0.378,
-    "philip-schaff": 0.4701,
-    "vatican-ii-peter-heers": 0.556
+    "apocrypha": 0.3948,
+    "baptismal-tradition": 0.5422,
+    "kjv-bible-66-books": 0.4114,
+    "kjv-bible-with-apocrypha-80-books": 0.4108,
+    "new-testament": 0.4752,
+    "old-testament": 0.3778,
+    "philip-schaff": 0.4697,
+    "vatican-ii-peter-heers": 0.5561
   },
   "Papacy": {
-    "apocrypha": 0.4936,
-    "baptismal-tradition": 0.5312,
-    "kjv-bible-66-books": 0.5083,
+    "apocrypha": 0.4937,
+    "baptismal-tradition": 0.531,
+    "kjv-bible-66-books": 0.5082,
     "kjv-bible-with-apocrypha-80-books": 0.5084,
-    "new-testament": 0.5476,
-    "old-testament": 0.4789,
-    "philip-schaff": 0.5428,
-    "vatican-ii-peter-heers": 0.5532
+    "new-testament": 0.5472,
+    "old-testament": 0.479,
+    "philip-schaff": 0.5424,
+    "vatican-ii-peter-heers": 0.553
+  },
+  "man": {
+    "apocrypha": 0.4512,
+    "baptismal-tradition": 0.2815,
+    "kjv-bible-66-books": 0.4737,
+    "kjv-bible-with-apocrypha-80-books": 0.4723,
+    "new-testament": 0.4579,
+    "old-testament": 0.4629,
+    "philip-schaff": 0.4287,
+    "vatican-ii-peter-heers": 0.2634
+  },
+  "king": {
+    "apocrypha": 0.4741,
+    "baptismal-tradition": 0.2887,
+    "kjv-bible-66-books": 0.494,
+    "kjv-bible-with-apocrypha-80-books": 0.4931,
+    "new-testament": 0.4527,
+    "old-testament": 0.4903,
+    "philip-schaff": 0.4094,
+    "vatican-ii-peter-heers": 0.2671
+  },
+  "queen": {
+    "apocrypha": 0.4255,
+    "baptismal-tradition": 0.2659,
+    "kjv-bible-66-books": 0.4378,
+    "kjv-bible-with-apocrypha-80-books": 0.4378,
+    "new-testament": 0.4121,
+    "old-testament": 0.4312,
+    "philip-schaff": 0.3647,
+    "vatican-ii-peter-heers": 0.2487
   }
 }

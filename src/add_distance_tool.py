@@ -36,7 +36,7 @@ JS = START + r"""
       {type:'scatter3d', mode:'lines', x:[], y:[], z:[],
        line:{color:'#FFD700', width:5}, hoverinfo:'skip', showlegend:false, name:'selection'},
       {type:'scatter3d', mode:'text', x:[], y:[], z:[], text:[],
-       textposition:'top center', textfont:{color:'#FFD700', size:16},
+       textposition:'top center', textfont:{color:'#FFD700', size:36},
        hoverinfo:'skip', showlegend:false, name:'distance'}
     ]).then(function(){ selLbl = gd.data.length - 1; selLine = gd.data.length - 2; });
 

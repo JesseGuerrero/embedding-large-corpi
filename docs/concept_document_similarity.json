@@ -152,5 +152,27 @@
     "old-testament": 0.4485,
     "philip-schaff": 0.5822,
     "vatican-ii-peter-heers": 0.5798
+  },
+  "heresy": {
+    "apocrypha": 0.5189,
+    "baptismal-tradition": 0.5512,
+    "kjv-bible-66-books": 0.5308,
+    "kjv-bible-with-apocrypha-80-books": 0.5315,
+    "new-testament": 0.5593,
+    "nicene-creed": 0.4113,
+    "old-testament": 0.5045,
+    "philip-schaff": 0.5562,
+    "vatican-ii-peter-heers": 0.4669
+  },
+  "donatism": {
+    "apocrypha": 0.5223,
+    "baptismal-tradition": 0.5832,
+    "kjv-bible-66-books": 0.5422,
+    "kjv-bible-with-apocrypha-80-books": 0.5415,
+    "new-testament": 0.5951,
+    "nicene-creed": 0.4656,
+    "old-testament": 0.5075,
+    "philip-schaff": 0.5788,
+    "vatican-ii-peter-heers": 0.5406
   }
 }

@@ -125,6 +125,20 @@ bar.style.marginBottom='8px'; bar.appendChild(bD); bar.appendChild(bA); panel.ap
 var info=document.createElement('div'); panel.appendChild(info);
 bD.onclick=function(){ setMode('distance'); }; bA.onclick=function(){ setMode('analogy'); };
 
+// bottom-left analogy sentence, fills in as points are selected
+var sent=document.createElement('div');
+sent.style.cssText='position:fixed;bottom:14px;left:14px;z-index:1000;background:rgba(20,20,28,.93);color:#eee;'
+  +'font:18px/1.5 system-ui,sans-serif;padding:12px 16px;border:1px solid #444;border-radius:8px;max-width:62vw;box-shadow:0 2px 12px rgba(0,0,0,.55)';
+document.body.appendChild(sent);
+function slot(v,ph){ return v!=null ? '<b style="color:#FFD700">'+v+'</b>' : '<span style="color:#777">['+ph+']</span>'; }
+function updateSentence(){
+  if(mode!=='analogy'){ sent.style.display='none'; return; }
+  sent.style.display='block';
+  var p1=sel.length>=1?LABELS[sel[0]]:null, p2=sel.length>=2?LABELS[sel[1]]:null,
+      p3=sel.length>=3?LABELS[sel[2]]:null, p4=(sel.length>=3&&window.__D!=null)?LABELS[window.__D]:null;
+  sent.innerHTML='As '+slot(p1,'POINT 1')+' is a '+slot(p2,'POINT 2')+' a '+slot(p3,'POINT 3')+' is '+slot(p4,'POINT 4')+'.';
+}
+
 var tp=document.createElement('div');
 tp.style.cssText='position:fixed;top:12px;right:12px;z-index:1000;background:rgba(20,20,28,.93);color:#eee;'
   +'font:12px/1.45 system-ui,sans-serif;padding:10px 12px;border:1px solid #444;border-radius:8px;'
@@ -197,14 +211,16 @@ function render(){
     else if(sel.length===1) info.innerHTML='<b>Analogy</b><br>A: <b>'+LABELS[sel[0]]+'</b><br>Click <b>B</b> (e.g. A=king → B=queen).';
     else if(sel.length===2) info.innerHTML='<b>Analogy</b><br><span style="color:#2ee6a6">'+LABELS[sel[0]]+' → '+LABELS[sel[1]]+'</span><br>Now click <b>C</b> to find its match.';
     else{ var R=predict(sel[0],sel[1],sel[2]);
-      if(!R.length){ window.__D=null; info.innerHTML='<b>Analogy</b><br>No other visible points to match against.'; return; }
-      window.__D=R[0][1];
-      var top=R.slice(0,3).map(function(p){return LABELS[p[1]]+' ('+p[0].toFixed(3)+')';}).join(', ');
-      info.innerHTML='<b>Analogy</b><br><span style="color:#2ee6a6">'+LABELS[sel[0]]+' : '+LABELS[sel[1]]+'</span> :: '
-        +'<span style="color:#ff8c42">'+LABELS[sel[2]]+' : <b>'+LABELS[R[0][1]]+'</b></span> ('+R[0][0].toFixed(3)+')'
-        +'<hr style="border-color:#444"><span style="color:#888;font-size:12px">best matches: '+top+'</span>'
-        +'<br><span style="color:#888;font-size:11px">Click a fourth point to reset.</span>'; }
+      if(!R.length){ window.__D=null; info.innerHTML='<b>Analogy</b><br>No other visible points to match against.'; }
+      else { window.__D=R[0][1];
+        var top=R.slice(0,3).map(function(p){return LABELS[p[1]]+' ('+p[0].toFixed(3)+')';}).join(', ');
+        info.innerHTML='<b>Analogy</b><br><span style="color:#2ee6a6">'+LABELS[sel[0]]+' : '+LABELS[sel[1]]+'</span> :: '
+          +'<span style="color:#ff8c42">'+LABELS[sel[2]]+' : <b>'+LABELS[R[0][1]]+'</b></span> ('+R[0][0].toFixed(3)+')'
+          +'<hr style="border-color:#444"><span style="color:#888;font-size:12px">best matches: '+top+'</span>'
+          +'<br><span style="color:#888;font-size:11px">Click a fourth point to reset.</span>'; }
+    }
   }
+  updateSentence();
 }
 
 gd.on('plotly_click', function(e){

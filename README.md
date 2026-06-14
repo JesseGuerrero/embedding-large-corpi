@@ -39,7 +39,24 @@ Swap with `--model` (e.g. `Qwen/Qwen3-Embedding-8B`) for higher fidelity.
 - **Similarity is computed in full 1024-dim space** (centroid cosine, see
   `docs/similarity.json`). The 3D plot is the lossy, illustrative view.
 
-## Run
+## Published graph (document-level)
+
+The live visualization embeds **each corpus file as a single point** (chunked →
+mean-pooled into one vector) alongside **individual concept words** (e.g. *Jesus
+Christ, Protestant, Eastern Orthodox, Roman Catholic, Papacy*), all in the same
+Qwen3-Embedding-4B space and projected with **PCA→3D** (PCA, not UMAP, because a
+handful of points has no neighborhood structure for UMAP to preserve).
+
+```bash
+python3 src/embed_documents.py --src corpi \
+  --concepts "Jesus Christ, Protestant, Non-denominational, Christianity, Eastern Orthodox, Roman Catholic, Papacy"
+```
+
+This writes `docs/index.html` plus `docs/concept_document_similarity.json` — the
+full-dimensional cosine similarity of every concept to every corpus, which is the
+quantitative signal behind the picture (the 3D plot is the lossy illustration).
+
+## Run (chunk-level, many points per corpus)
 
 ```bash
 # 1. chunk (local)

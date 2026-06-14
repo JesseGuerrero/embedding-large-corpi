@@ -1,0 +1,72 @@
+{
+  "Jesus Christ": {
+    "apocrypha": 0.5378,
+    "baptismal-tradition": 0.4572,
+    "kjv-bible-66-books": 0.5735,
+    "kjv-bible-with-apocrypha-80-books": 0.5706,
+    "new-testament": 0.6451,
+    "old-testament": 0.5319,
+    "philip-schaff": 0.5939,
+    "vatican-ii-peter-heers": 0.4431
+  },
+  "Protestant": {
+    "apocrypha": 0.4109,
+    "baptismal-tradition": 0.5002,
+    "kjv-bible-66-books": 0.4475,
+    "kjv-bible-with-apocrypha-80-books": 0.4439,
+    "new-testament": 0.5174,
+    "old-testament": 0.4107,
+    "philip-schaff": 0.4808,
+    "vatican-ii-peter-heers": 0.5001
+  },
+  "Non-denominational": {
+    "apocrypha": 0.4024,
+    "baptismal-tradition": 0.4483,
+    "kjv-bible-66-books": 0.4336,
+    "kjv-bible-with-apocrypha-80-books": 0.4308,
+    "new-testament": 0.4696,
+    "old-testament": 0.4079,
+    "philip-schaff": 0.4482,
+    "vatican-ii-peter-heers": 0.4633
+  },
+  "Christianity": {
+    "apocrypha": 0.4231,
+    "baptismal-tradition": 0.4959,
+    "kjv-bible-66-books": 0.4575,
+    "kjv-bible-with-apocrypha-80-books": 0.4546,
+    "new-testament": 0.5432,
+    "old-testament": 0.4157,
+    "philip-schaff": 0.5051,
+    "vatican-ii-peter-heers": 0.5093
+  },
+  "Eastern Orthodox": {
+    "apocrypha": 0.4499,
+    "baptismal-tradition": 0.614,
+    "kjv-bible-66-books": 0.4569,
+    "kjv-bible-with-apocrypha-80-books": 0.458,
+    "new-testament": 0.5107,
+    "old-testament": 0.4248,
+    "philip-schaff": 0.5166,
+    "vatican-ii-peter-heers": 0.5807
+  },
+  "Roman Catholic": {
+    "apocrypha": 0.3953,
+    "baptismal-tradition": 0.5424,
+    "kjv-bible-66-books": 0.4116,
+    "kjv-bible-with-apocrypha-80-books": 0.4111,
+    "new-testament": 0.4753,
+    "old-testament": 0.378,
+    "philip-schaff": 0.4701,
+    "vatican-ii-peter-heers": 0.556
+  },
+  "Papacy": {
+    "apocrypha": 0.4936,
+    "baptismal-tradition": 0.5312,
+    "kjv-bible-66-books": 0.5083,
+    "kjv-bible-with-apocrypha-80-books": 0.5084,
+    "new-testament": 0.5476,
+    "old-testament": 0.4789,
+    "philip-schaff": 0.5428,
+    "vatican-ii-peter-heers": 0.5532
+  }
+}

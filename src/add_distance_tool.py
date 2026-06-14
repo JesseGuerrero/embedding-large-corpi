@@ -21,14 +21,24 @@ JS = START + r"""
   function init(){
     var gd = document.querySelector('.plotly-graph-div');
     if(!gd || !gd.on || !window.Plotly){ return setTimeout(init, 150); }
-    var base = gd.data.length, sel = [], selIdx = -1, busy = false;
+    var base = gd.data.length, sel = [], selLine = -1, selLbl = -1, busy = false, zoff = 0;
 
-    // One persistent trace for the selection line + midpoint distance label.
-    Plotly.addTraces(gd, {
-      type:'scatter3d', mode:'lines+text', x:[], y:[], z:[], text:[],
-      line:{color:'#FFD700', width:5}, textfont:{color:'#FFD700', size:15},
-      textposition:'middle center', hoverinfo:'skip', showlegend:false, name:'selection'
-    }).then(function(){ selIdx = gd.data.length - 1; });
+    // vertical offset for the label, scaled to the plot's z-range, so the
+    // number floats above the line instead of overlapping it.
+    (function(){
+      var zmin=Infinity, zmax=-Infinity;
+      for(var i=0;i<base;i++){ var z=gd.data[i].z||[]; for(var j=0;j<z.length;j++){ if(z[j]<zmin)zmin=z[j]; if(z[j]>zmax)zmax=z[j]; } }
+      if(isFinite(zmin) && isFinite(zmax)) zoff=(zmax-zmin)*0.05;
+    })();
+
+    // Two persistent traces: the selection line, and a midpoint distance label.
+    Plotly.addTraces(gd, [
+      {type:'scatter3d', mode:'lines', x:[], y:[], z:[],
+       line:{color:'#FFD700', width:5}, hoverinfo:'skip', showlegend:false, name:'selection'},
+      {type:'scatter3d', mode:'text', x:[], y:[], z:[], text:[],
+       textposition:'top center', textfont:{color:'#FFD700', size:16},
+       hoverinfo:'skip', showlegend:false, name:'distance'}
+    ]).then(function(){ selLbl = gd.data.length - 1; selLine = gd.data.length - 2; });
 
     var panel = document.createElement('div');
     panel.style.cssText = 'position:fixed;top:12px;left:12px;z-index:1000;background:rgba(20,20,28,.92);'
@@ -40,16 +50,16 @@ JS = START + r"""
     function dist(a,b){ var dx=a.x-b.x, dy=a.y-b.y, dz=a.z-b.z; return Math.sqrt(dx*dx+dy*dy+dz*dz); }
 
     function clearLine(){
-      if(selIdx<0 || busy) return; busy=true;
-      Plotly.restyle(gd, {x:[[]], y:[[]], z:[[]], text:[[]]}, [selIdx]).then(function(){ busy=false; });
+      if(selLine<0 || busy) return; busy=true;
+      Plotly.restyle(gd, {x:[[],[]], y:[[],[]], z:[[],[]], text:[[],[]]}, [selLine, selLbl]).then(function(){ busy=false; });
     }
     function showLine(){
-      if(selIdx<0) return;
+      if(selLine<0) return;
       var a=sel[0], b=sel[1], d=dist(a,b);
       var mx=(a.x+b.x)/2, my=(a.y+b.y)/2, mz=(a.z+b.z)/2;
       busy=true;
-      Plotly.restyle(gd, {x:[[a.x,mx,b.x]], y:[[a.y,my,b.y]], z:[[a.z,mz,b.z]],
-        text:[['', d.toFixed(3), '']]}, [selIdx]).then(function(){ busy=false; });
+      Plotly.restyle(gd, {x:[[a.x,b.x],[mx]], y:[[a.y,b.y],[my]], z:[[a.z,b.z],[mz+zoff]],
+        text:[[], [d.toFixed(3)]]}, [selLine, selLbl]).then(function(){ busy=false; });
     }
     function render(){
       if(sel.length===0){ panel.innerHTML='<b>Distance tool</b><br>Click any two points.'; }
@@ -62,7 +72,7 @@ JS = START + r"""
 
     gd.on('plotly_click', function(e){
       var p = e.points[0];
-      if(p.curveNumber === selIdx) return;            // ignore clicks on the selection line
+      if(p.curveNumber === selLine || p.curveNumber === selLbl) return;   // ignore selection traces
       var it = {label:lbl(p), x:p.x, y:p.y, z:p.z};
       if(sel.length===2){ sel=[]; clearLine(); }
       sel.push(it); render();

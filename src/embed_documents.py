@@ -76,7 +76,7 @@ def embed_all(args):
 TOOL_JS = r"""
 var gd = document.getElementById('{plot_id}');
 var LABELS=__LABELS__, KINDS=__KINDS__, COORDS=__COORDS__, VECS=__VECS__;
-var base = gd.data.length, IDX={}, mode='distance', sel=[];
+var base = gd.data.length, IDX={}, busy=false, mode='distance', sel=[];
 
 var STORE='emb_excluded_v1', excluded={};
 try{ var raw=localStorage.getItem(STORE); if(raw) JSON.parse(raw).forEach(function(l){excluded[l]=1;}); }catch(e){}
@@ -125,23 +125,6 @@ bar.style.marginBottom='8px'; bar.appendChild(bD); bar.appendChild(bA); panel.ap
 var info=document.createElement('div'); panel.appendChild(info);
 bD.onclick=function(){ setMode('distance'); }; bA.onclick=function(){ setMode('analogy'); };
 
-// bottom-left analogy sentence, fills in as points are selected
-var sent=document.createElement('div');
-sent.style.cssText='position:fixed;bottom:14px;left:14px;z-index:1000;background:rgba(20,20,28,.93);color:#eee;'
-  +'font:18px/1.5 system-ui,sans-serif;padding:12px 16px;border:1px solid #444;border-radius:8px;max-width:62vw;box-shadow:0 2px 12px rgba(0,0,0,.55)';
-document.body.appendChild(sent);
-function slot(v,ph){ return v!=null ? '<b style="color:#FFD700">'+v+'</b>' : '<span style="color:#777">['+ph+']</span>'; }
-function updateSentence(){
-  if(mode!=='analogy'){ sent.style.display='none'; return; }
-  sent.style.display='block';
-  var p1=sel.length>=1?LABELS[sel[0]]:null, p2=sel.length>=2?LABELS[sel[1]]:null,
-      p3=sel.length>=3?LABELS[sel[2]]:null, p4=null;
-  if(sel.length>=3){ var D=window.__D;
-    if(D==null){ var R=predict(sel[0],sel[1],sel[2]); if(R.length){ D=R[0][1]; window.__D=D; } }
-    if(D!=null) p4=LABELS[D]; }
-  sent.innerHTML='As '+slot(p1,'POINT 1')+' is '+slot(p2,'POINT 2')+' as a '+slot(p3,'POINT 3')+' is a '+slot(p4,'POINT 4')+'.';
-}
-
 var tp=document.createElement('div');
 tp.style.cssText='position:fixed;top:12px;right:12px;z-index:1000;background:rgba(20,20,28,.93);color:#eee;'
   +'font:12px/1.45 system-ui,sans-serif;padding:10px 12px;border:1px solid #444;border-radius:8px;'
@@ -169,36 +152,35 @@ function afterToggle(){ saveVis(); sel=[]; window.__D=null; syncChecks(); clearA
 function setMode(m){ mode=m; sel=[]; window.__D=null; clearAll();
   bD.style.background=m=='distance'?'#4356c0':'#2a2a36'; bA.style.background=m=='analogy'?'#4356c0':'#2a2a36'; render(); }
 
+function coordsOf(arr){ var x=[],y=[],z=[]; for(var i=0;i<arr.length;i++){ x.push(COORDS[arr[i]][0]); y.push(COORDS[arr[i]][1]); z.push(COORDS[arr[i]][2]); } return [x,y,z]; }
+function clearAll(){ if(IDX.sel===undefined||busy) return; busy=true;
+  Plotly.restyle(gd,{x:[[],[],[],[],[]],y:[[],[],[],[],[]],z:[[],[],[],[],[]],text:[[],[],[],[],[]]},
+    [IDX.dline,IDX.dlabel,IDX.ab,IDX.cd,IDX.sel]).then(function(){busy=false;}); }
+
 function predict(A,B,C){
   var t=normv(addv(VECS[C],subv(VECS[B],VECS[A]))), ex={}; ex[A]=ex[B]=ex[C]=1;
   var r=[]; for(var i=0;i<VECS.length;i++){ if(ex[i]||!isVis(i))continue; r.push([dot(t,VECS[i]),i]); }
   r.sort(function(a,b){return b[0]-a[0];}); return r;
 }
 
-// Single atomic redraw of all 5 tool traces from the current state. One restyle
-// per event -> the display can never desync from `sel` (no dropped updates).
-function applyTools(){
-  if(IDX.sel===undefined) return;
-  var dl=[[],[],[]], lbx=[],lby=[],lbz=[],lbt=[], ab=[[],[],[]], cd=[[],[],[]], hi=[[],[],[]];
-  function ph(i){ hi[0].push(COORDS[i][0]); hi[1].push(COORDS[i][1]); hi[2].push(COORDS[i][2]); }
-  var k;
-  if(mode==='distance'){
-    for(k=0;k<sel.length;k++) ph(sel[k]);
-    if(sel.length===2){ var a=sel[0],b=sel[1],ca=COORDS[a],cb=COORDS[b];
-      dl=[[ca[0],cb[0]],[ca[1],cb[1]],[ca[2],cb[2]]];
-      lbx=[(ca[0]+cb[0])/2]; lby=[(ca[1]+cb[1])/2]; lbz=[(ca[2]+cb[2])/2+zoff]; lbt=[(1-cos(a,b)).toFixed(3)]; }
-  } else {
-    for(k=0;k<sel.length;k++) ph(sel[k]);
-    if(sel.length>=2){ var A=sel[0],B=sel[1];
-      ab=[[COORDS[A][0],COORDS[B][0]],[COORDS[A][1],COORDS[B][1]],[COORDS[A][2],COORDS[B][2]]]; }
-    if(sel.length===3 && window.__D!=null){ var C=sel[2],D=window.__D;
-      cd=[[COORDS[C][0],COORDS[D][0]],[COORDS[C][1],COORDS[D][1]],[COORDS[C][2],COORDS[D][2]]]; ph(D); }
-  }
-  Plotly.restyle(gd,{x:[dl[0],lbx,ab[0],cd[0],hi[0]], y:[dl[1],lby,ab[1],cd[1],hi[1]],
-    z:[dl[2],lbz,ab[2],cd[2],hi[2]], text:[[],lbt,[],[],[]]},
-    [IDX.dline,IDX.dlabel,IDX.ab,IDX.cd,IDX.sel]);
+function drawDistance(){
+  if(IDX.sel===undefined||busy) return; busy=true;
+  var hc=coordsOf(sel), lx=[],ly=[],lz=[],tx=[],ty=[],tz=[],tt=[];
+  if(sel.length===2){ var a=sel[0],b=sel[1],ca=COORDS[a],cb=COORDS[b];
+    lx=[ca[0],cb[0]]; ly=[ca[1],cb[1]]; lz=[ca[2],cb[2]];
+    tx=[(ca[0]+cb[0])/2]; ty=[(ca[1]+cb[1])/2]; tz=[(ca[2]+cb[2])/2+zoff]; tt=[(1-cos(a,b)).toFixed(3)]; }
+  Plotly.restyle(gd,{x:[lx,tx,hc[0]],y:[ly,ty,hc[1]],z:[lz,tz,hc[2]],text:[[],tt,[]]},
+    [IDX.dline,IDX.dlabel,IDX.sel]).then(function(){busy=false;});
 }
-function clearAll(){ applyTools(); }   // sel=[] -> all tool traces drawn empty
+function drawAnalogy(){
+  if(IDX.sel===undefined||busy) return; busy=true;
+  var abx=[],aby=[],abz=[],cdx=[],cdy=[],cdz=[],hi=sel.slice();
+  if(sel.length>=2){ var A=sel[0],B=sel[1]; abx=[COORDS[A][0],COORDS[B][0]]; aby=[COORDS[A][1],COORDS[B][1]]; abz=[COORDS[A][2],COORDS[B][2]]; }
+  if(sel.length===3 && window.__D!=null){ var C=sel[2], D=window.__D;
+    cdx=[COORDS[C][0],COORDS[D][0]]; cdy=[COORDS[C][1],COORDS[D][1]]; cdz=[COORDS[C][2],COORDS[D][2]]; hi=[sel[0],sel[1],sel[2],D]; }
+  var hc=coordsOf(hi);
+  Plotly.restyle(gd,{x:[abx,cdx,hc[0]],y:[aby,cdy,hc[1]],z:[abz,cdz,hc[2]]},[IDX.ab,IDX.cd,IDX.sel]).then(function(){busy=false;});
+}
 
 function render(){
   if(mode==='distance'){
@@ -215,27 +197,25 @@ function render(){
     else if(sel.length===1) info.innerHTML='<b>Analogy</b><br>A: <b>'+LABELS[sel[0]]+'</b><br>Click <b>B</b> (e.g. A=king → B=queen).';
     else if(sel.length===2) info.innerHTML='<b>Analogy</b><br><span style="color:#2ee6a6">'+LABELS[sel[0]]+' → '+LABELS[sel[1]]+'</span><br>Now click <b>C</b> to find its match.';
     else{ var R=predict(sel[0],sel[1],sel[2]);
-      if(!R.length){ window.__D=null; info.innerHTML='<b>Analogy</b><br>No other visible points to match against.'; }
-      else { window.__D=R[0][1];
-        var top=R.slice(0,3).map(function(p){return LABELS[p[1]]+' ('+p[0].toFixed(3)+')';}).join(', ');
-        info.innerHTML='<b>Analogy</b><br><span style="color:#2ee6a6">'+LABELS[sel[0]]+' : '+LABELS[sel[1]]+'</span> :: '
-          +'<span style="color:#ff8c42">'+LABELS[sel[2]]+' : <b>'+LABELS[R[0][1]]+'</b></span> ('+R[0][0].toFixed(3)+')'
-          +'<hr style="border-color:#444"><span style="color:#888;font-size:12px">best matches: '+top+'</span>'
-          +'<br><span style="color:#888;font-size:11px">Click a fourth point to reset.</span>'; }
-    }
+      if(!R.length){ window.__D=null; info.innerHTML='<b>Analogy</b><br>No other visible points to match against.'; return; }
+      window.__D=R[0][1];
+      var top=R.slice(0,3).map(function(p){return LABELS[p[1]]+' ('+p[0].toFixed(3)+')';}).join(', ');
+      info.innerHTML='<b>Analogy</b><br><span style="color:#2ee6a6">'+LABELS[sel[0]]+' : '+LABELS[sel[1]]+'</span> :: '
+        +'<span style="color:#ff8c42">'+LABELS[sel[2]]+' : <b>'+LABELS[R[0][1]]+'</b></span> ('+R[0][0].toFixed(3)+')'
+        +'<hr style="border-color:#444"><span style="color:#888;font-size:12px">best matches: '+top+'</span>'
+        +'<br><span style="color:#888;font-size:11px">Click a fourth point to reset.</span>'; }
   }
-  updateSentence();
 }
 
 gd.on('plotly_click', function(e){
   var p=e.points[0]; if(p.curveNumber>=base) return;       // ignore tool traces
   var g=p.customdata; if(g==null) return;
   var cap = mode==='distance'?2:3;
-  if(sel.length>=cap){ sel=[]; window.__D=null; }
+  if(sel.length>=cap){ sel=[]; window.__D=null; clearAll(); }
   if(sel.indexOf(g)===-1) sel.push(g);
-  if(mode==='analogy'){ window.__D = null;
-    if(sel.length===3){ var R=predict(sel[0],sel[1],sel[2]); if(R.length) window.__D=R[0][1]; } }
-  render(); applyTools();
+  render();
+  if(mode==='distance') drawDistance();
+  else { if(sel.length===3) render(); drawAnalogy(); }   // ensure __D set before drawing
 });
 setMode('distance');
 """
@@ -259,6 +239,7 @@ def build_html(X, labels, kinds, out):
             text=labels[sel], textposition="top center",
             textfont=dict(size=11, color="#ddd"),
             customdata=[int(i) for i in sel],
+            hovertext=labels[sel], hoverinfo="text",
         ))
     fig.update_layout(
         title="Corpus documents & concept words — shared embedding space "
@@ -266,10 +247,6 @@ def build_html(X, labels, kinds, out):
         template="plotly_dark",
         scene=dict(xaxis_title="PC-1", yaxis_title="PC-2", zaxis_title="PC-3"),
         legend=dict(itemsizing="constant"), margin=dict(l=0, r=0, t=40, b=0),
-        # Disable hover entirely: stops Plotly's per-mousemove gl3d pick (readPixels
-        # on a retina framebuffer — the "selecting takes forever" lag) and the
-        # hover-label render that recursed/crashed. plotly_click still fires.
-        hovermode=False,
     )
 
     js = (TOOL_JS
@@ -281,15 +258,6 @@ def build_html(X, labels, kinds, out):
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.write_html(out, include_plotlyjs="cdn", full_html=True,
                    config={"responsive": True}, post_script=js)
-    # Force 2D canvas contexts to willReadFrequently=true BEFORE Plotly loads, so
-    # its repeated getImageData readbacks (3D point picking) are CPU-fast instead
-    # of round-tripping the GPU on every mouse move — fixes selection lag.
-    patch = ("<script>(function(){var g=HTMLCanvasElement.prototype.getContext;"
-             "HTMLCanvasElement.prototype.getContext=function(t,a){"
-             "if(t==='2d'){a=a||{};if(a.willReadFrequently===undefined)a.willReadFrequently=true;}"
-             "return g.call(this,t,a);};})();</script>")
-    html = open(out, encoding="utf-8").read().replace("<head>", "<head>" + patch, 1)
-    open(out, "w", encoding="utf-8").write(html)
     open(os.path.join(os.path.dirname(out), ".nojekyll"), "w").close()
 
     docs_i = np.where(kinds == "document")[0]; con_i = np.where(kinds == "concept")[0]

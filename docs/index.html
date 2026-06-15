@@ -162,21 +162,20 @@ function renderAList(){
     ? alist.map(function(l,i){return 'P'+(i+1)+': '+l;}).join('<br>')
     : '<span style="color:#888">Click up to 4 points…</span>');
 }
-var _alastG=null, _alastT=0;
+var _alastG=null;
 gd.on('plotly_click', function(e){
   if(mode!=='analogy') return;
   var p=e.points[0]; if(p.curveNumber>=base) return;
   var g=p.customdata; if(g==null) return;
-  var now=+new Date();
-  if(g===_alastG && now-_alastT<400) return;   // ignore gl3d double-fire
-  _alastG=g; _alastT=now;
-  if(alist.length>=4) alist=[];
+  if(g===_alastG) return;   // ignore gl3d double-fire (same point repeated), timing-independent
+  _alastG=g;
+  if(alist.length>=4){ alist=[]; }
   alist.push(LABELS[g]);
   if(alist.length===3 && window.__D!=null) alist.push(LABELS[window.__D]);  // P4 = analogy result
   renderAList();
 });
-bD.addEventListener('click', function(){ renderAList(); });
-bA.addEventListener('click', function(){ alist=[]; renderAList(); });
+bD.addEventListener('click', function(){ _alastG=null; renderAList(); });
+bA.addEventListener('click', function(){ alist=[]; _alastG=null; renderAList(); });
 renderAList();
 
                         })                };            </script>        </div>

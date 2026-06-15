@@ -149,6 +149,30 @@ gd.on('plotly_click', function(e){
 });
 setMode('distance');
 
+// ---- analogy click list (bottom-left): up to 4 clicked point names, analogy mode only ----
+var alist=[], alistEl=document.createElement('div');
+alistEl.style.cssText='position:fixed;bottom:12px;left:12px;z-index:1000;background:rgba(20,20,28,.93);color:#eee;'
+  +'font:13px/1.5 system-ui,sans-serif;padding:10px 12px;border:1px solid #444;border-radius:8px;'
+  +'max-width:350px;box-shadow:0 2px 12px rgba(0,0,0,.55);display:none';
+document.body.appendChild(alistEl);
+function renderAList(){
+  if(mode!=='analogy'){ alistEl.style.display='none'; return; }
+  alistEl.style.display='block';
+  alistEl.innerHTML='<b>Clicked points</b><br>'+(alist.length
+    ? alist.map(function(l,i){return (i+1)+'. '+l;}).join('<br>')
+    : '<span style="color:#888">Click up to 4 points…</span>');
+}
+gd.on('plotly_click', function(e){
+  if(mode!=='analogy') return;
+  var p=e.points[0]; if(p.curveNumber>=base) return;
+  var g=p.customdata; if(g==null) return;
+  if(alist.length>=4) alist=[];
+  alist.push(LABELS[g]); renderAList();
+});
+bD.addEventListener('click', function(){ renderAList(); });
+bA.addEventListener('click', function(){ alist=[]; renderAList(); });
+renderAList();
+
                         })                };            </script>        </div>
 </body>
 </html>

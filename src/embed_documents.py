@@ -220,7 +220,7 @@ gd.on('plotly_click', function(e){
 setMode('distance');
 
 // ---- analogy click list (bottom-left): up to 4 clicked point names, analogy mode only ----
-var alist=[], alistEl=document.createElement('div');
+var alist=[], aidx=[], alistEl=document.createElement('div');
 alistEl.style.cssText='position:fixed;bottom:12px;left:12px;z-index:1000;background:rgba(20,20,28,.93);color:#eee;'
   +'font:13px/1.5 system-ui,sans-serif;padding:10px 12px;border:1px solid #444;border-radius:8px;'
   +'max-width:350px;box-shadow:0 2px 12px rgba(0,0,0,.55);display:none';
@@ -239,13 +239,13 @@ gd.on('plotly_click', function(e){
   var g=p.customdata; if(g==null) return;
   if(g===_alastG) return;   // ignore gl3d double-fire (same point repeated), timing-independent
   _alastG=g;
-  if(alist.length>=4){ alist=[]; }
-  alist.push(LABELS[g]);
-  if(alist.length===3 && window.__D!=null) alist.push(LABELS[window.__D]);  // P4 = analogy result
+  if(alist.length>=4){ alist=[]; aidx=[]; }
+  alist.push(LABELS[g]); aidx.push(g);
+  if(aidx.length===3){ var R=predict(aidx[0],aidx[1],aidx[2]); if(R.length) alist.push(LABELS[R[0][1]]); }  // P4 = analogy result
   renderAList();
 });
 bD.addEventListener('click', function(){ _alastG=null; renderAList(); });
-bA.addEventListener('click', function(){ alist=[]; _alastG=null; renderAList(); });
+bA.addEventListener('click', function(){ alist=[]; aidx=[]; _alastG=null; renderAList(); });
 renderAList();
 """
 

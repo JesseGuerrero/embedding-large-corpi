@@ -153,7 +153,7 @@ setMode('distance');
 var alist=[], aidx=[], alistEl=document.createElement('div');
 alistEl.style.cssText='position:fixed;bottom:12px;left:12px;z-index:1000;background:rgba(20,20,28,.93);color:#eee;'
   +'font:13px/1.5 system-ui,sans-serif;padding:10px 12px;border:1px solid #444;border-radius:8px;'
-  +'max-width:350px;box-shadow:0 2px 12px rgba(0,0,0,.55);display:none';
+  +'white-space:nowrap;max-width:none;box-shadow:0 2px 12px rgba(0,0,0,.55);display:none';
 document.body.appendChild(alistEl);
 function renderAList(){
   if(mode!=='analogy'){ alistEl.style.display='none'; return; }
@@ -177,6 +177,16 @@ gd.on('plotly_click', function(e){
 bD.addEventListener('click', function(){ _alastG=null; renderAList(); });
 bA.addEventListener('click', function(){ alist=[]; aidx=[]; _alastG=null; renderAList(); });
 renderAList();
+
+// ---- pad axis ranges so point text labels aren't clipped at the scene edges ----
+(function(){
+  var mn=[Infinity,Infinity,Infinity], mx=[-Infinity,-Infinity,-Infinity];
+  for(var i=0;i<COORDS.length;i++) for(var a=0;a<3;a++){ var v=COORDS[i][a]; if(v<mn[a])mn[a]=v; if(v>mx[a])mx[a]=v; }
+  var maxsp=Math.max(mx[0]-mn[0], mx[1]-mn[1], mx[2]-mn[2])||1, pad=maxsp*0.35, rng={};
+  ['x','y','z'].forEach(function(ax,a){ rng['scene.'+ax+'axis.range']=[mn[a]-pad, mx[a]+pad]; });
+  rng['scene.aspectmode']='data';
+  Plotly.relayout(gd, rng);
+})();
 
                         })                };            </script>        </div>
 </body>

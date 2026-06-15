@@ -278,6 +278,15 @@ def build_html(X, labels, kinds, out):
     os.makedirs(os.path.dirname(out), exist_ok=True)
     fig.write_html(out, include_plotlyjs="cdn", full_html=True,
                    config={"responsive": True}, post_script=js)
+    # Force 2D canvas contexts to willReadFrequently=true BEFORE Plotly loads, so
+    # its repeated getImageData readbacks (3D point picking) are CPU-fast instead
+    # of round-tripping the GPU on every mouse move — fixes selection lag.
+    patch = ("<script>(function(){var g=HTMLCanvasElement.prototype.getContext;"
+             "HTMLCanvasElement.prototype.getContext=function(t,a){"
+             "if(t==='2d'){a=a||{};if(a.willReadFrequently===undefined)a.willReadFrequently=true;}"
+             "return g.call(this,t,a);};})();</script>")
+    html = open(out, encoding="utf-8").read().replace("<head>", "<head>" + patch, 1)
+    open(out, "w", encoding="utf-8").write(html)
     open(os.path.join(os.path.dirname(out), ".nojekyll"), "w").close()
 
     docs_i = np.where(kinds == "document")[0]; con_i = np.where(kinds == "concept")[0]

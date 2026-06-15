@@ -171,7 +171,9 @@ gd.on('plotly_click', function(e){
   if(g===_alastG && now-_alastT<400) return;   // ignore gl3d double-fire
   _alastG=g; _alastT=now;
   if(alist.length>=4) alist=[];
-  alist.push(LABELS[g]); renderAList();
+  alist.push(LABELS[g]);
+  if(alist.length===3 && window.__D!=null) alist.push(LABELS[window.__D]);  // P4 = analogy result
+  renderAList();
 });
 bD.addEventListener('click', function(){ renderAList(); });
 bA.addEventListener('click', function(){ alist=[]; renderAList(); });

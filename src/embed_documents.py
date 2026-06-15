@@ -101,7 +101,7 @@ function redraw(){
       x.push(COORDS[i][0]); y.push(COORDS[i][1]); z.push(COORDS[i][2]); t.push(LABELS[i]); cd.push(i); }
     return [x,y,z,t,cd]; }
   var d=pack(DOCS), c=pack(CONS);
-  Plotly.restyle(gd,{x:[d[0],c[0]],y:[d[1],c[1]],z:[d[2],c[2]],text:[d[3],c[3]],customdata:[d[4],c[4]]},[0,1]);
+  Plotly.restyle(gd,{x:[d[0],c[0]],y:[d[1],c[1]],z:[d[2],c[2]],text:[d[3],c[3]],hovertext:[d[3],c[3]],customdata:[d[4],c[4]]},[0,1]);
 }
 
 Plotly.addTraces(gd, [

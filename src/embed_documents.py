@@ -228,9 +228,9 @@ document.body.appendChild(alistEl);
 function renderAList(){
   if(mode!=='analogy'){ alistEl.style.display='none'; return; }
   alistEl.style.display='block';
-  alistEl.innerHTML='<b>Clicked points</b><br>'+(alist.length
-    ? alist.map(function(l,i){return 'P'+(i+1)+': '+l;}).join('<br>')
-    : '<span style="color:#888">Click up to 4 points…</span>');
+  var ph=['[POINT_1]','[POINT_2]','[POINT_3]','[POINT_4]'];
+  var p=ph.map(function(d,i){ return alist[i]!=null ? alist[i] : d; });
+  alistEl.innerHTML='<b>'+p[0]+'</b> is a <b>'+p[1]+'</b> as a <b>'+p[2]+'</b> is a <b>'+p[3]+'</b>.';
 }
 var _alastG=null;
 gd.on('plotly_click', function(e){

@@ -259,7 +259,6 @@ def build_html(X, labels, kinds, out):
             text=labels[sel], textposition="top center",
             textfont=dict(size=11, color="#ddd"),
             customdata=[int(i) for i in sel],
-            hoverinfo="none",   # hover-label rendering recurses on scatter3d; labels are already shown
         ))
     fig.update_layout(
         title="Corpus documents & concept words — shared embedding space "
@@ -267,6 +266,10 @@ def build_html(X, labels, kinds, out):
         template="plotly_dark",
         scene=dict(xaxis_title="PC-1", yaxis_title="PC-2", zaxis_title="PC-3"),
         legend=dict(itemsizing="constant"), margin=dict(l=0, r=0, t=40, b=0),
+        # Disable hover entirely: stops Plotly's per-mousemove gl3d pick (readPixels
+        # on a retina framebuffer — the "selecting takes forever" lag) and the
+        # hover-label render that recursed/crashed. plotly_click still fires.
+        hovermode=False,
     )
 
     js = (TOOL_JS
